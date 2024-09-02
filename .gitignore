@@ -1,0 +1,5 @@
+# ignore dependencies
+*-venv
+
+# ignore test file
+_test.py
