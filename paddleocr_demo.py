@@ -27,22 +27,64 @@ im_show.save('result.jpg')
 from docx import Document
 from docx.shared import Pt
 
-# Create a new Word document
+# Function to find the index of the closest average height
+def find_closest_average(averages, height, tolerance):
+    closest = []
+    for i, avg in enumerate(averages):
+        if abs(avg - height) <= tolerance:
+            closest.append((abs(avg - height), i))
+    if len(closest) > 0:
+        closest.sort(key=lambda x : x[0])
+        return closest[0][1]
+    return None
+
+# Initialize the list to store average heights
+average_heights = []
+
+# Tolerance percentage (10%)
+tolerance_percentage = 0.10
+
+# First pass: Determine the final average heights
+height_mappings = []  # List to store the mapping of heights to their average indices
+
+for box, _ in result:
+    # Calculate the height of the current box
+    y1 = box[0][1]
+    y2 = box[3][1]
+    y3 = box[1][1]
+    y4 = box[2][1]
+    height = ((y2 - y1) + (y4 - y3)) / 2
+
+    # Calculate the tolerance based on height
+    tolerance = height * tolerance_percentage
+
+    # Find the closest average height index within tolerance
+    index = find_closest_average(average_heights, height, tolerance)
+
+    if index is None:
+        # If no close average is found, add the height to averages
+        average_heights.append(height)
+        index = len(average_heights) - 1
+    else:
+        # Update the average height with the new height
+        average_heights[index] = (average_heights[index] + height) / 2
+
+    height_mappings.append(index)
+
+# Second pass: Apply the determined font sizes based on average heights
 doc = Document()
 
-# Iterate over the OCR data
-for box, (text, _) in result:
-    # Extract the Y-coordinate (vertical position)
-    y1 = box[0][1]
-    y2 = box[2][1]
-    height = y2 - y1  # The height of the text box in the image
+for i, (box, (text, _)) in enumerate(result):
+    # Get the corresponding average height index
+    index = height_mappings[i]
+    average_height = average_heights[index]
 
-    # Add the text to the document
+    # Calculate the font size based on the average height
+    font_size = Pt(average_height * 0.75)
+
+    # Add the text to the document with the calculated font size
     paragraph = doc.add_paragraph(text)
-
-    # Set the font size based on the height
     run = paragraph.runs[0]
-    font_size = Pt(height * 0.75)  # Adjust the scaling factor as needed
     run.font.size = font_size
 
 # Save the document
