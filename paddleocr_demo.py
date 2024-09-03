@@ -38,56 +38,64 @@ def find_closest_average(averages, height, tolerance):
         return closest[0][1]
     return None
 
-# Initialize the list to store average heights
-average_heights = []
-
-# Tolerance percentage (10%)
-tolerance_percentage = 0.10
-
 # First pass: Determine the final average heights
-height_mappings = []  # List to store the mapping of heights to their average indices
+def _font_size_generator(result:list):
+    # Initialize the list to store average heights
+    average_heights = []
 
-for box, _ in result:
-    # Calculate the height of the current box
-    y1 = box[0][1]
-    y2 = box[3][1]
-    y3 = box[1][1]
-    y4 = box[2][1]
-    height = ((y2 - y1) + (y4 - y3)) / 2
+    # Tolerance percentage (10%)
+    tolerance_percentage = 0.10
 
-    # Calculate the tolerance based on height
-    tolerance = height * tolerance_percentage
+    height_mappings = []  # List to store the mapping of heights to their average indices
 
-    # Find the closest average height index within tolerance
-    index = find_closest_average(average_heights, height, tolerance)
+    for box, _ in result:
+        # Calculate the height of the current box
+        y1 = box[0][1]
+        y2 = box[3][1]
+        y3 = box[1][1]
+        y4 = box[2][1]
+        height = ((y2 - y1) + (y4 - y3)) / 2
 
-    if index is None:
-        # If no close average is found, add the height to averages
-        average_heights.append(height)
-        index = len(average_heights) - 1
-    else:
-        # Update the average height with the new height
-        average_heights[index] = (average_heights[index] + height) / 2
+        # Calculate the tolerance based on height
+        tolerance = height * tolerance_percentage
 
-    height_mappings.append(index)
+        # Find the closest average height index within tolerance
+        index = find_closest_average(average_heights, height, tolerance)
+
+        if index is None:
+            # If no close average is found, add the height to averages
+            average_heights.append(height)
+            index = len(average_heights) - 1
+        else:
+            # Update the average height with the new height
+            average_heights[index] = (average_heights[index] + height) / 2
+
+        height_mappings.append(index)
+
+    return average_heights, height_mappings
 
 # Second pass: Apply the determined font sizes based on average heights
-doc = Document()
+def Write_Result_to_Word(result:list, output_path:str = "output.docs"):
+    doc = Document()
 
-for i, (box, (text, _)) in enumerate(result):
-    # Get the corresponding average height index
-    index = height_mappings[i]
-    average_height = average_heights[index]
+    average_heights, height_mappings = _font_size_generator(result)
 
-    # Calculate the font size based on the average height
-    font_size = Pt(average_height * 0.75)
+    for i, (box, (text, _)) in enumerate(result):
+        # Get the corresponding average height index
+        index = height_mappings[i]
+        average_height = average_heights[index]
 
-    # Add the text to the document with the calculated font size
-    paragraph = doc.add_paragraph(text)
-    run = paragraph.runs[0]
-    run.font.size = font_size
+        # Calculate the font size based on the average height
+        font_size = Pt(average_height * 0.75)
 
-# Save the document
-doc.save("output.docx")
+        # Add the text to the document with the calculated font size
+        paragraph = doc.add_paragraph(text)
+        run = paragraph.runs[0]
+        run.font.size = font_size
 
-print("Document created successfully!")
+    # Save the document
+    doc.save(output_path)
+
+    print("Document created successfully!")
+
+Write_Result_to_Word(result, "output_test.docx")
