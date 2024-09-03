@@ -26,6 +26,10 @@ pip install paddleocr
 ```
 
 ## Exception
+**Font Issue**
+Download a font file *.ttf and set the path to `/path/to/your/font/*.ttf`
+
+
 If facing this Error when using GPU
 ```
 RuntimeError: (PreconditionNotMet) Cannot load cudnn shared library. Cannot invoke method cudnnGetVersion.
