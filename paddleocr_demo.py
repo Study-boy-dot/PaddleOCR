@@ -1,101 +1,80 @@
 from paddleocr import PaddleOCR, draw_ocr
+from ocr2word import Write_Result_to_Word
+import argparse
+import os
+from PIL import Image
+import fnmatch
+
+# Create a parser
+parser = argparse.ArgumentParser()
+
+# Add arguments to parser
+parser.add_argument('-i', '--input_dir', type=str, help='Images input directory')
+parser.add_argument('-o', '--output_dir', type=str, help='Result output directory')
+parser.add_argument('-l', '--lang', type=str, default='en', help="OCR detecting language")
+parser.add_argument('-f', '--file', type=str, help='Input file path')
+parser.add_argument('-w', '--word', type=bool, default=True, help="Turn result to word")
+args = parser.parse_args()
+
+# Parse arguments
+if args.input_dir is not None:
+    input_dir = args.input_dir
+if args.output_dir is not None:
+    output_dir = args.output_dir
+else:
+    output_dir = f'output_{input_dir}'
 
 # Paddleocr目前支持的多语言语种可以通过修改lang参数进行切换
 # 例如`ch`, `en`, `fr`, `german`, `korean`, `japan`
-ocr = PaddleOCR(use_angle_cls=True, lang="en", use_gpu=True)  # need to run only once to download and load model into memory
-img_path = './text_images/bigsleep.jpg'
-result = ocr.ocr(img_path, cls=True)
-for idx in range(len(result)):
-    res = result[idx]
-    for line in res:
-        print(line)
+ocr = PaddleOCR(use_angle_cls=True, lang=args.lang, use_gpu=True)  # need to run only once to download and load model into memory
 
-# 显示结果
-from PIL import Image
-# from PIL import ImageFont
-# font = ImageFont.load_default()
-result = result[0]
-image = Image.open(img_path).convert('RGB')
-boxes = [line[0] for line in result]
-txts = [line[1][0] for line in result]
-scores = [line[1][1] for line in result]
-im_show = draw_ocr(image, boxes, txts, scores, font_path='./fonts/arial.ttf')
-im_show = Image.fromarray(im_show)
-im_show.save('result.jpg')
+if args.input_dir and args.output_dir:
+    # Read folder
+    if os.path.exists(input_dir):
+        for file_name in os.listdir(input_dir):
+            if file_name.endswith('.png') or file_name.endswith('.jpg'): 
+                file_path = os.path.join(input_dir, file_name)
+                # OCR images
+                result = ocr.ocr(file_path, cls=True)
 
-# Write word file
-from docx import Document
-from docx.shared import Pt
+                # Display result
+                if result is not None:
+                    result = result[0]
+                    if result is not None:
+                        image = Image.open(file_path).convert('RGB')
+                        boxes = [line[0] for line in result]
+                        txts = [line[1][0] for line in result]
+                        scores = [line[1][1] for line in result]
+                        im_show = draw_ocr(image, boxes, txts, scores, font_path='./fonts/arial.ttf')
+                        im_show = Image.fromarray(im_show)
+                        if os.path.exists(output_dir) == False:
+                            os.makedirs(output_dir)
+                        im_show.save(f'{output_dir}/{file_name}')
 
-# Function to find the index of the closest average height
-def find_closest_average(averages, height, tolerance):
-    closest = []
-    for i, avg in enumerate(averages):
-        if abs(avg - height) <= tolerance:
-            closest.append((abs(avg - height), i))
-    if len(closest) > 0:
-        closest.sort(key=lambda x : x[0])
-        return closest[0][1]
-    return None
+                        # Save result to word
+                        if args.word:
+                            Write_Result_to_Word(result, f'{output_dir}/{os.path.splitext(file_name)[0]}.docx')
+elif args.file:
+    # Check file path exist
+    if os.path.exists(args.file):
+        # OCR image
+        result = ocr.ocr(args.file, cls=True)
 
-# First pass: Determine the final average heights
-def _font_size_generator(result:list):
-    # Initialize the list to store average heights
-    average_heights = []
-
-    # Tolerance percentage (10%)
-    tolerance_percentage = 0.10
-
-    height_mappings = []  # List to store the mapping of heights to their average indices
-
-    for box, _ in result:
-        # Calculate the height of the current box
-        y1 = box[0][1]
-        y2 = box[3][1]
-        y3 = box[1][1]
-        y4 = box[2][1]
-        height = ((y2 - y1) + (y4 - y3)) / 2
-
-        # Calculate the tolerance based on height
-        tolerance = height * tolerance_percentage
-
-        # Find the closest average height index within tolerance
-        index = find_closest_average(average_heights, height, tolerance)
-
-        if index is None:
-            # If no close average is found, add the height to averages
-            average_heights.append(height)
-            index = len(average_heights) - 1
-        else:
-            # Update the average height with the new height
-            average_heights[index] = (average_heights[index] + height) / 2
-
-        height_mappings.append(index)
-
-    return average_heights, height_mappings
-
-# Second pass: Apply the determined font sizes based on average heights
-def Write_Result_to_Word(result:list, output_path:str = "output.docs"):
-    doc = Document()
-
-    average_heights, height_mappings = _font_size_generator(result)
-
-    for i, (box, (text, _)) in enumerate(result):
-        # Get the corresponding average height index
-        index = height_mappings[i]
-        average_height = average_heights[index]
-
-        # Calculate the font size based on the average height
-        font_size = Pt(average_height * 0.75)
-
-        # Add the text to the document with the calculated font size
-        paragraph = doc.add_paragraph(text)
-        run = paragraph.runs[0]
-        run.font.size = font_size
-
-    # Save the document
-    doc.save(output_path)
-
-    print("Document created successfully!")
-
-Write_Result_to_Word(result, "output_test.docx")
+        # Display result
+        if result is not None:
+            result = result[0]
+            if result is not None:
+                image = Image.open(args.file).convert('RGB')
+                boxes = [line[0] for line in result]
+                txts = [line[1][0] for line in result]
+                scores = [line[1][1] for line in result]
+                im_show = draw_ocr(image, boxes, txts, scores, font_path='./fonts/arial.ttf')
+                im_show = Image.fromarray(im_show)
+                # Save result image
+                if os.path.exists(output_dir) == False:
+                    os.makedirs(output_dir)
+                im_show.save(f'{output_dir}/{args.file}')
+                
+                # Save result to word
+                if args.word:
+                    Write_Result_to_Word(result, f'{output_dir}/{os.path.splitext(args.file)[0]}.docx')
