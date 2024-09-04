@@ -41,7 +41,7 @@ if args.dir:
 			file_path = os.path.join(args.dir, file_name)
 			doc_text = read_docx(file_path)
 			documents.extend([para for para in doc_text.split('\n') if para.strip() != "" and not para.strip().isdigit()])
-		elif not args.pattern:
+		elif not args.pattern and file_name.endswith(".docx"):
 			file_path = os.path.join(args.dir, file_name)
 			doc_text = read_docx(file_path)
 			documents.extend([para for para in doc_text.split('\n') if para.strip() != "" and not para.strip().isdigit()])
